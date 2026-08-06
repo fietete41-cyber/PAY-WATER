@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Modern Smart Apartment Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Google Fonts: Prompt for headings, Sarabun for body -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+ 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Sarabun', 'Inter', 'sans-serif'],
+                        heading: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af',
+                            900: '#1e3a8a', 950: '#172554',
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 40px -10px rgba(0,0,0,0.08)',
+                        'card': '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; -webkit-font-smoothing: antialiased; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .toggle-checkbox:checked { right: 0; border-color: #10B981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+        input[type="number"], input[type="text"], select { transition: all 0.2s ease; }
+        .glass-modal { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .custom-checkbox {
+            appearance: none; background-color: #fff; margin: 0; font: inherit; color: currentColor;
+            width: 1.75em; height: 1.75em; border: 2px solid #cbd5e1; border-radius: 0.4em;
+            display: grid; place-content: center; transition: all 0.2s ease-in-out; cursor: pointer;
+        }
+        .custom-checkbox::before {
+            content: ""; width: 1em; height: 1em;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+            transform: scale(0); transform-origin: bottom left; transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white; background-color: white;
+        }
+        .custom-checkbox:checked { background-color: #10B981; border-color: #10B981; }
+        .custom-checkbox:checked::before { transform: scale(1); }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        @keyframes bounce-x { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+        .animate-bounce-x { animation: bounce-x 1.5s infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="text-slate-800">
+ 
+<div id="app" class="min-h-screen p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto flex flex-col gap-5 lg:gap-8">
+ 
+    <!-- Connection / Sync status banner -->
+    <div v-if="apiStatus !== 'ok'" class="rounded-xl sm:rounded-2xl border px-4 py-3 text-sm font-medium flex items-center gap-2"
+         :class="apiStatus === 'loading' ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-amber-50 border-amber-200 text-amber-700'">
+        <svg v-if="apiStatus === 'loading'" class="h-4 w-4 spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4m13.657-5.657l-1.414 1.414M7.757 16.243l-1.414 1.414m0-11.314l1.414 1.414M16.243 16.243l1.414 1.414"/></svg>
+        <svg v-else class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86A2 2 0 0021 16.5L13.73 4a2 2 0 00-3.46 0L3 16.5A2 2 0 005.07 19z"/></svg>
+        {{ apiStatus === 'loading' ? 'กำลังเชื่อมต่อฐานข้อมูล...' : 'เชื่อมต่อฐานข้อมูลไม่ได้ — กำลังแสดงข้อมูลตัวอย่าง (ตรวจสอบ API_URL ในโค้ด)' }}
+    </div>
+
+    <!-- Feedback ที่ชัดเจนหลังบันทึกหรือเมื่อเชื่อมต่อไม่ได้ -->
+    <transition name="fade">
+        <div v-if="syncError || syncMessage" class="rounded-xl border px-4 py-3 text-sm font-medium flex items-center justify-between gap-3"
+             :class="syncError ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
+            <span>{{ syncError || syncMessage }}</span>
+            <button v-if="syncError" @click="loadData" class="shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-semibold hover:bg-white">ลองใหม่</button>
+        </div>
+    </transition>
+ 
+    <!-- Hero Header with Gradients -->
+    <header class="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-indigo-900 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-soft flex flex-col md:flex-row justify-between items-start md:items-center border border-white/10">
+        <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-white opacity-5 blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-0 left-10 -mb-20 w-48 h-48 rounded-full bg-brand-500 opacity-20 blur-3xl pointer-events-none"></div>
+ 
+        <div class="relative z-10 w-full">
+            <h1 class="text-2xl sm:text-3xl font-bold font-heading flex items-center gap-2 sm:gap-3 tracking-tight">
+                <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md border border-white/20 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sm:h-7 sm:w-7 text-brand-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <span class="truncate">Smart Apartment Hub</span>
+            </h1>
+            <p class="text-brand-100 text-xs sm:text-sm mt-2 ml-1 opacity-90 font-light tracking-wide">ระบบจัดการค่าเช่าและค่าน้ำ • เชื่อมต่อ Google Sheets + แจ้งเตือน LINE</p>
+        </div>
+ 
+        <div class="relative z-10 mt-5 md:mt-0 self-start md:self-auto">
+            <div class="px-4 py-2 sm:px-5 sm:py-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 sm:gap-3 shadow-inner w-fit">
+                <div class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full" :class="apiStatus === 'ok' ? 'bg-green-400' : 'bg-amber-400'"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3" :class="apiStatus === 'ok' ? 'bg-green-500' : 'bg-amber-500'"></span>
+                </div>
+                <span class="text-brand-50 font-medium tracking-wide">{{ apiStatus === 'ok' ? 'ระบบพร้อมใช้งาน' : 'โหมดออฟไลน์' }}</span>
+            </div>
+        </div>
+    </header>
+ 
+    <!-- Main Layout: 2 Columns on LG -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-8">
+ 
+        <!-- LEFT COLUMN (Config & Table) -->
+        <div class="xl:col-span-8 flex flex-col gap-5 lg:gap-8">
+ 
+            <!-- 1. Configuration Panel -->
+            <section class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl shadow-card border border-slate-100">
+                <div class="flex items-center justify-between mb-4 sm:mb-6">
+                    <h2 class="text-lg sm:text-xl font-bold font-heading flex items-center gap-2 text-slate-800">
+                        <div class="p-1.5 bg-slate-100 rounded-lg text-slate-500 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </div>
+                        ตั้งค่าพารามิเตอร์ระบบ
+                    </h2>
+                    <span class="text-[11px] font-medium flex items-center gap-1" :class="configSaving ? 'text-brand-500' : 'text-emerald-500'">
+                        <svg v-if="configSaving" class="h-3.5 w-3.5 spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4"/></svg>
+                        <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        {{ configSaving ? 'กำลังบันทึก...' : 'บันทึกแล้ว' }}
+                    </span>
+                </div>
+ 
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                    <!-- Utility Master Toggle -->
+                    <div class="bg-slate-50/50 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 hover:border-brand-200 transition-colors group">
+                        <label class="font-semibold text-sm text-slate-600 block mb-2.5 group-hover:text-brand-600 transition-colors">สวิตช์คิดค่าน้ำ (Master)</label>
+                        <div class="flex items-center gap-3 sm:gap-4">
+                            <div class="relative inline-block w-12 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="water-toggle" v-model="config.enableWater" @change="scheduleSaveConfig" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-slate-200 appearance-none cursor-pointer transition-all duration-300 shadow-sm" style="top: 2px; left: 2px;"/>
+                                <label for="water-toggle" class="toggle-label block overflow-hidden h-7 rounded-full bg-slate-200 cursor-pointer transition-colors duration-300"></label>
+                            </div>
+                            <span class="text-xs sm:text-sm font-medium px-2.5 py-1 rounded-full whitespace-nowrap" :class="config.enableWater ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
+                                {{ config.enableWater ? 'เปิดใช้งาน' : 'ปิดใช้งาน (0฿)' }}
+                            </span>
+                        </div>
+                    </div>
+ 
+                    <!-- Water Rate -->
+                    <div class="bg-slate-50/50 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 hover:border-brand-200 transition-colors group">
+                        <label class="font-semibold text-sm text-slate-600 block mb-2.5 group-hover:text-brand-600 transition-colors">อัตราค่าน้ำ (บาท/หน่วย)</label>
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="relative flex-1">
+                                <input type="number" v-model="config.waterRate" @input="scheduleSaveConfig" min="0" max="3" class="w-full pl-3 sm:pl-4 pr-7 sm:pr-8 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm sm:text-base">
+                                <span class="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">฿</span>
+                            </div>
+                            <div class="text-[10px] sm:text-[11px] text-slate-500 leading-tight bg-slate-100 p-1.5 sm:p-2 rounded-lg border border-slate-200 shrink-0">
+                                *สูงสุด 3 ฿<br>(สคบ.)
+                            </div>
+                        </div>
+                    </div>
+ 
+                    <!-- PromptPay ID -->
+                    <div class="bg-slate-50/50 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 hover:border-brand-200 transition-colors group">
+                        <label class="font-semibold text-sm text-slate-600 block mb-2.5 group-hover:text-brand-600 transition-colors">เบอร์พร้อมเพย์รับเงิน</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg>
+                            </div>
+                            <input type="text" v-model="config.promptPayId" @input="scheduleSaveConfig" placeholder="เช่น 0812345678" class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm sm:text-base">
+                        </div>
+                    </div>
+                </div>
+            </section>
+ 
+            <!-- 2. Data Entry -->
+            <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-100 overflow-hidden flex-1 flex flex-col relative">
+ 
+                <div class="p-5 sm:p-6 lg:p-8 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 border-b border-slate-100">
+                    <h2 class="text-lg sm:text-xl font-bold font-heading flex items-center gap-2 text-slate-800">
+                        <div class="p-1.5 bg-brand-50 rounded-lg text-brand-600 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </div>
+                        ตารางจัดการข้อมูล (Data Sheet)
+                    </h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-2 text-xs font-medium bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full border border-amber-100">
+                            <span class="relative flex h-2 w-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            </span>
+                            Auto-Calculate
+                        </div>
+                        <button v-if="!isAdmin" @click="openAdminModal" class="flex items-center gap-1.5 text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-full border border-slate-200 transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" /></svg>
+                            ล็อกสถานะ (กดเพื่อแก้)
+                        </button>
+                        <button v-else @click="lockAdmin" class="flex items-center gap-1.5 text-xs font-medium bg-brand-100 text-brand-700 hover:bg-brand-200 px-3 py-1.5 rounded-full border border-brand-200 transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" /></svg>
+                            โหมด Admin (กดเพื่อล็อก)
+                        </button>
+                    </div>
+                </div>
+ 
+                <div class="md:hidden bg-indigo-50 border-b border-indigo-100 px-4 py-2 flex items-center justify-center gap-2 text-indigo-700 text-xs font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 animate-bounce-x" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                    เลื่อนซ้าย-ขวา เพื่อดูข้อมูลและกรอกตัวเลข
+                </div>
+ 
+                <div class="overflow-x-auto flex-1 relative w-full scroll-smooth">
+                    <table class="w-full text-left border-collapse whitespace-nowrap min-w-[850px]">
+                        <thead>
+                            <tr class="text-slate-500 text-[11px] sm:text-xs uppercase tracking-wider font-semibold border-b border-slate-100 bg-slate-50/80">
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center sticky left-0 z-20 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] border-r border-slate-100">ห้อง</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center">มิเตอร์เดิม</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center text-brand-600 bg-brand-50/50 rounded-t-lg">มิเตอร์ใหม่</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center text-rose-600 bg-rose-50/50 rounded-t-lg">ค้างจ่าย (น้ำ)</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center">สรุปค่าน้ำ</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-right">ยอดรวมสุทธิ</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center">สลิปโอนเงิน</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center">สถานะ</th>
+                                <th class="py-3 sm:py-4 px-3 sm:px-4 text-center">ซิงค์</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="(room, index) in rooms" :key="room.uid" class="group transition-colors" :class="{'bg-emerald-50/40 hover:bg-emerald-50/70': room.isPaid, 'hover:bg-slate-50/60': !room.isPaid}">
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center sticky left-0 z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.03)] transition-colors"
+                                    :class="room.isPaid ? 'bg-emerald-50' : 'bg-white group-hover:bg-slate-50'">
+                                    <div v-if="!isAdmin" class="inline-flex items-center justify-center min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] px-2 rounded-xl bg-slate-100/80 font-bold font-heading text-slate-700 transition-colors shadow-sm border border-slate-200/50 whitespace-nowrap"
+                                         :class="{'!bg-emerald-100 !text-emerald-700 !border-emerald-200': room.isPaid}">
+                                        {{ room.id }}
+                                    </div>
+                                    <div v-else class="flex flex-col items-center gap-1.5 min-w-[70px]">
+                                        <input type="text" v-model="room.id" @blur="saveRoom(room)" class="w-20 sm:w-24 text-center px-1.5 py-1 text-xs sm:text-sm font-bold font-heading border-2 border-brand-300 rounded-lg focus:outline-none focus:border-brand-500 bg-white text-brand-700 shadow-sm" placeholder="เลขห้อง">
+                                        <button @click="removeRoom(index)" class="text-[10px] text-rose-500 hover:text-rose-700 font-medium flex items-center gap-0.5 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            ลบ
+                                        </button>
+                                    </div>
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center text-slate-400 font-medium text-sm sm:text-base">
+                                    <span v-if="!isAdmin">{{ room.prevWater }}</span>
+                                    <input v-else type="number" v-model="room.prevWater" @blur="saveRoom(room)" class="w-16 sm:w-20 text-center px-1.5 py-1 text-sm border-2 border-brand-300 rounded-lg focus:outline-none focus:border-brand-500 bg-white text-slate-700 shadow-sm">
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center bg-brand-50/20 group-hover:bg-brand-50/40 transition-colors">
+                                    <div class="relative inline-block">
+                                        <input type="number" v-model="room.currWater" @blur="saveRoom(room)" class="w-20 sm:w-24 text-center px-2 sm:px-3 py-1.5 sm:py-2 bg-white border border-brand-200 text-brand-700 font-bold rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20 shadow-sm transition-all text-sm sm:text-base">
+                                    </div>
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center bg-rose-50/20 group-hover:bg-rose-50/40 transition-colors">
+                                    <input type="number" v-model="room.unpaidWater" @blur="saveRoom(room)" class="w-16 sm:w-20 text-center px-2 sm:px-3 py-1.5 sm:py-2 bg-white border border-rose-200 text-rose-600 font-bold rounded-lg focus:outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 shadow-sm transition-all text-sm sm:text-base">
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-[10px] sm:text-xs text-slate-400 mb-0.5">{{ getUnits(room) }} หน่วย</span>
+                                        <span class="font-semibold text-xs sm:text-sm px-2 py-0.5 sm:py-1 rounded border shadow-sm" :class="!config.enableWater ? 'bg-slate-50 text-slate-400 line-through border-slate-200' : 'bg-white text-brand-700 border-brand-100'">
+                                            ฿{{ getWaterCost(room).toLocaleString() }}
+                                        </span>
+                                    </div>
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
+                                    <span class="text-base sm:text-lg font-bold font-heading transition-colors" :class="room.isPaid ? 'text-emerald-600' : 'text-slate-800'">
+                                        ฿{{ getTotal(room).toLocaleString() }}
+                                    </span>
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
+                                    <div v-if="room.slipImage" class="flex flex-col items-center gap-1">
+                                        <div class="relative group/img cursor-pointer" @click="previewSlip(room.slipImage)">
+                                            <img :src="room.slipImage" class="w-9 h-9 sm:w-11 sm:h-11 object-cover rounded-lg border-[3px] border-emerald-300 shadow-sm transition-transform group-hover/img:scale-105 bg-white">
+                                            <div class="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                            </div>
+                                        </div>
+                                        <button @click="removeSlip(room)" class="text-[9px] sm:text-[10px] bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 hover:border-rose-200 px-2 py-0.5 rounded font-medium transition-colors">ลบ/เปลี่ยน</button>
+                                    </div>
+                                    <div v-else-if="room.uploading" class="flex justify-center">
+                                        <svg class="h-5 w-5 spin text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4"/></svg>
+                                    </div>
+                                    <div v-else class="flex justify-center">
+                                        <label :for="'slip-upload-' + room.uid" class="cursor-pointer group/upload">
+                                            <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-lg border-2 border-dashed border-slate-300 bg-white flex items-center justify-center group-hover/upload:border-brand-400 group-hover/upload:bg-brand-50 transition-colors shadow-sm">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 group-hover/upload:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                            </div>
+                                        </label>
+                                        <input :id="'slip-upload-' + room.uid" type="file" accept="image/*" class="hidden" @change="(e) => handleFileUpload(e, room)">
+                                    </div>
+                                </td>
+ 
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
+                                    <div class="relative inline-block" :class="{'opacity-40 cursor-not-allowed grayscale': !isAdmin}">
+                                        <input type="checkbox" v-model="room.isPaid" @change="togglePaid(room)" :disabled="!isAdmin" class="custom-checkbox mx-auto shadow-sm" :class="{'pointer-events-none': !isAdmin}">
+                                        <div v-if="!isAdmin" @click="openAdminModal" class="absolute inset-0 z-10 cursor-not-allowed" title="กดปลดล็อกโหมด Admin ด้านบนก่อนทำรายการ"></div>
+                                    </div>
+                                </td>
+ 
+                                <!-- Sync indicator -->
+                                <td class="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
+                                    <svg v-if="room.saving" class="h-4 w-4 spin text-brand-400 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4"/></svg>
+                                    <svg v-else-if="room.saved" class="h-4 w-4 text-emerald-400 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    <span v-else class="text-slate-300 text-xs">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+ 
+                <div v-if="isAdmin" class="p-3 sm:p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+                    <button @click="addRoom" class="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        เพิ่มห้อง / บ้านเลขที่ใหม่
+                    </button>
+                </div>
+            </section>
+        </div>
+ 
+        <!-- RIGHT COLUMN (QR & Report) -->
+        <div class="xl:col-span-4 flex flex-col gap-5 lg:gap-8">
+ 
+            <!-- 3. PromptPay QR Code Generator -->
+            <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-100 overflow-hidden relative">
+                <div class="h-1.5 sm:h-2 w-full bg-gradient-to-r from-brand-500 to-indigo-600"></div>
+ 
+                <div class="p-5 sm:p-6 lg:p-8">
+                    <h2 class="text-lg sm:text-xl font-bold font-heading mb-4 sm:mb-6 flex items-center gap-2 text-slate-800">
+                        <div class="p-1.5 bg-brand-50 rounded-lg text-brand-600 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        </div>
+                        Smart QR Generator
+                    </h2>
+ 
+                    <div class="space-y-4 sm:space-y-5">
+                        <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">เลือกห้อง</label>
+                                <div class="relative">
+                                    <select v-model="selectedRoomForQR" class="w-full pl-3 sm:pl-4 pr-7 sm:pr-8 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium appearance-none text-sm sm:text-base">
+                                        <option v-for="room in rooms" :key="room.uid" :value="room.id">ห้อง {{ room.id }}</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 sm:px-3 text-slate-400">
+                                        <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+ 
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">รูปแบบการจ่าย</label>
+                                <div class="relative">
+                                    <select v-model="qrPaymentType" class="w-full pl-3 sm:pl-4 pr-7 sm:pr-8 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium appearance-none text-sm sm:text-base">
+                                        <option value="water_all">รวมยอดค้าง</option>
+                                        <option value="water_current">เฉพาะเดือนนี้</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 sm:px-3 text-slate-400">
+                                        <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+ 
+                        <div class="bg-gradient-to-b from-brand-900 to-brand-950 rounded-xl sm:rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center relative overflow-hidden shadow-lg border border-brand-800">
+                            <div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+ 
+                            <div class="relative z-10 text-center mb-4 w-full">
+                                <p class="text-brand-200 text-xs sm:text-sm font-medium mb-1">ยอดชำระ PromptPay (ค่าน้ำ)</p>
+                                <p class="text-3xl sm:text-4xl font-bold font-heading text-white tracking-tight">฿{{ qrAmount.toLocaleString() }}</p>
+                            </div>
+ 
+                            <div class="bg-white p-3 rounded-lg sm:rounded-xl shadow-xl relative z-10 w-[150px] h-[150px] sm:w-[180px] sm:h-[180px] flex items-center justify-center transform transition-transform hover:scale-105">
+                                <img v-if="qrAmount > 0 && config.promptPayId" :src="qrUrl" alt="PromptPay QR" class="w-full h-full object-contain">
+                                <div v-else class="text-slate-400 text-[10px] sm:text-xs text-center flex flex-col items-center gap-1.5 sm:gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sm:h-8 sm:w-8 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    ระบุยอดและเบอร์<br>เพื่อสร้าง QR
+                                </div>
+                            </div>
+ 
+                            <div class="mt-4 sm:mt-5 flex flex-col items-center gap-2 w-full max-w-[240px]">
+                                <div class="flex items-center justify-center w-full bg-brand-800/80 px-4 py-2.5 rounded-xl border border-brand-700/60 backdrop-blur-md relative z-10 shadow-inner">
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/PromptPay_logo.png/1024px-PromptPay_logo.png" alt="PromptPay" class="h-4 sm:h-5 object-contain brightness-0 invert mr-2">
+                                    <span class="text-xs sm:text-sm text-brand-50 font-medium border-l border-brand-600/50 pl-2">สแกนจ่ายผ่านแอปธนาคาร</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+ 
+            <!-- 4. Auto Payment Filter Report -->
+            <section class="bg-white rounded-2xl sm:rounded-3xl shadow-card border border-slate-100 flex-1 flex flex-col overflow-hidden">
+                <div class="p-5 sm:p-6 lg:p-8 pb-3 sm:pb-4 flex justify-between items-center border-b border-slate-100 bg-rose-50/50">
+                    <h2 class="text-base sm:text-lg font-bold font-heading flex items-center gap-2 text-rose-700">
+                        <div class="p-1.5 bg-rose-100 rounded-lg text-rose-600 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        </div>
+                        รายงานยอดค้างชำระ
+                    </h2>
+                    <span class="bg-rose-500 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm shadow-rose-200 whitespace-nowrap">{{ unpaidRooms.length }} ห้อง</span>
+                </div>
+ 
+                <div class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-slate-50/50 min-h-[150px]">
+                    <div v-if="unpaidRooms.length === 0" class="flex flex-col items-center justify-center h-full text-slate-400 py-6 sm:py-10">
+                        <div class="w-12 h-12 sm:w-16 sm:h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-2 sm:mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 sm:h-8 sm:w-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <p class="font-medium text-slate-600 text-sm sm:text-base">ยอดเยี่ยม!</p>
+                        <p class="text-xs sm:text-sm">ลูกบ้านชำระเงินครบทุกห้องแล้ว</p>
+                    </div>
+ 
+                    <ul v-else class="space-y-2 sm:space-y-3">
+                        <li v-for="room in unpaidRooms" :key="room.uid" class="flex justify-between items-center bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-rose-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-400 group-hover:bg-rose-500 transition-colors"></div>
+ 
+                            <div class="flex items-center gap-3 sm:gap-4 pl-1.5 sm:pl-2">
+                                <div class="bg-rose-50 text-rose-700 font-bold font-heading rounded-lg sm:rounded-xl w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-base sm:text-lg border border-rose-100 shrink-0">
+                                    {{ room.id }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-800 text-sm sm:text-base leading-tight">รอการชำระเงิน</p>
+                                    <p class="text-[10px] sm:text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                        Status: <span class="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-rose-500 animate-pulse"></span> <span class="font-medium">FALSE</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] sm:text-xs text-slate-500 mb-0.5">ยอดสุทธิ</p>
+                                <p class="font-bold font-heading text-rose-600 text-base sm:text-lg">฿{{ getTotal(room).toLocaleString() }}</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+ 
+                <div class="p-4 sm:p-6 bg-white border-t border-slate-100 flex justify-between items-center">
+                    <span class="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wider">ค้างชำระรวม</span>
+                    <span class="text-xl sm:text-2xl font-bold font-heading text-rose-600">฿{{ totalUnpaidAmount.toLocaleString() }}</span>
+                </div>
+            </section>
+ 
+        </div>
+    </div>
+ 
+    <!-- Slip Preview Modal -->
+    <transition name="fade">
+        <div v-if="showingSlip" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" @click.self="showingSlip = null">
+            <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity"></div>
+            <div class="glass-modal p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl max-w-md w-full relative shadow-2xl transform transition-all z-10 border border-white/40">
+                <div class="absolute -top-3 -right-3 sm:-top-4 sm:-right-4">
+                    <button @click="showingSlip = null" class="bg-slate-800 text-white rounded-full p-2 sm:p-2.5 shadow-lg hover:bg-rose-500 hover:scale-110 transition-all focus:outline-none focus:ring-4 focus:ring-rose-500/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    </button>
+                </div>
+                <div class="bg-white/90 rounded-xl sm:rounded-2xl p-4 sm:p-5">
+                    <h3 class="text-center font-bold font-heading text-base sm:text-lg mb-3 sm:mb-4 text-slate-800 flex items-center justify-center gap-2">
+                        <div class="p-1 sm:p-1.5 bg-emerald-100 rounded-full text-emerald-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        ตรวจสอบสลิปโอนเงิน
+                    </h3>
+                    <div class="bg-slate-100 rounded-lg sm:rounded-xl p-1 sm:p-2 border border-slate-200 flex justify-center overflow-hidden">
+                        <img :src="showingSlip" class="w-auto max-w-full h-auto max-h-[60vh] object-contain rounded-md sm:rounded-lg shadow-sm">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </transition>
+ 
+    <!-- Admin PIN Modal -->
+    <transition name="fade">
+        <div v-if="showPinModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity" @click="showPinModal = false"></div>
+            <div class="glass-modal p-6 rounded-2xl sm:rounded-3xl max-w-sm w-full relative shadow-2xl transform transition-all z-10 border border-white/40">
+                <div class="text-center mb-5">
+                    <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    </div>
+                    <h3 class="text-lg font-bold font-heading text-slate-800">ยืนยันสิทธิ์ผู้ดูแลระบบ</h3>
+                    <p class="text-xs text-slate-500 mt-1">กรุณาใส่รหัส PIN เพื่อแก้ไขสถานะการจ่ายเงิน<br>(รหัสทดสอบ: 1234)</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <input type="password" v-model="pinInput" @keyup.enter="verifyPin" placeholder="รหัส PIN 4 หลัก" class="w-full text-center tracking-[0.5em] text-lg px-4 py-3 bg-white border rounded-xl focus:outline-none focus:ring-4 transition-all" :class="pinError ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 text-rose-600' : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'">
+                        <p v-if="pinError" class="text-xs text-rose-500 text-center mt-2 font-medium">รหัส PIN ไม่ถูกต้อง</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button @click="showPinModal = false" class="flex-1 py-2.5 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-medium text-sm transition-colors">ยกเลิก</button>
+                        <button @click="verifyPin" class="flex-1 py-2.5 rounded-xl text-white bg-slate-800 hover:bg-slate-900 font-medium text-sm transition-colors shadow-lg shadow-slate-900/20">ปลดล็อก</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </transition>
+</div>
+ 
+<script>
+    const { createApp, ref, computed, watch, onMounted } = Vue;
+ 
+    // ★★★ วางลิงก์ Web App ของ Google Apps Script ที่ Deploy แล้วตรงนี้ ★★★
+    // วาง URL ที่ได้จาก Deploy > Web app ของ Google Apps Script ตรงนี้เพียงครั้งเดียว
+    const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+ 
+    const app = createApp({
+        setup() {
+            const config = ref({ enableWater: true, waterRate: 3, promptPayId: '0812345678' });
+            const rooms = ref([]);
+            const showingSlip = ref(null);
+            const apiStatus = ref('loading'); // loading | ok | error
+            const configSaving = ref(false);
+            const syncMessage = ref('');
+            const syncError = ref('');
+ 
+            const isAdmin = ref(false);
+            const showPinModal = ref(false);
+            const pinInput = ref('');
+            const pinError = ref(false);
+            const ADMIN_PIN = '1234';
+ 
+            const isConfigured = () => API_URL && API_URL.indexOf('http') === 0;
+ 
+            // ---------- API helpers ----------
+            async function apiGet() {
+                const res = await fetch(API_URL, { method: 'GET' });
+                return res.json();
+            }
+            // ใช้ text/plain เพื่อไม่ให้ browser ส่ง preflight OPTIONS (Apps Script ไม่รองรับ)
+            async function apiPost(action, payload) {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action, payload })
+                });
+                return res.json();
+            }
+ 
+            async function loadData() {
+                if (!isConfigured()) {
+                    apiStatus.value = 'error';
+                    seedMockData();
+                    return;
+                }
+                try {
+                    apiStatus.value = 'loading';
+                    const data = await apiGet();
+                    config.value = { ...config.value, ...data.config };
+                    rooms.value = (data.rooms || []).map(r => ({ ...r, saving: false, saved: false, uploading: false }));
+                    apiStatus.value = 'ok';
+                    syncError.value = '';
+                    syncMessage.value = 'ซิงก์ข้อมูลล่าสุด ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                } catch (err) {
+                    console.error(err);
+                    apiStatus.value = 'error';
+                    syncError.value = 'เชื่อมต่อ Google Sheets ไม่สำเร็จ กรุณาตรวจสอบ URL และสิทธิ์การ Deploy';
+                    if (rooms.value.length === 0) seedMockData();
+                }
+            }
+ 
+            function seedMockData() {
+                rooms.value = [
+                    { uid: 'r1', id: '101', prevWater: 1500, currWater: 1515, unpaidWater: 45, isPaid: false, slipImage: null },
+                    { uid: 'r2', id: '102', prevWater: 2300, currWater: 2310, unpaidWater: 0, isPaid: true, slipImage: null },
+                    { uid: 'r3', id: '103', prevWater: 950, currWater: 972, unpaidWater: 120, isPaid: false, slipImage: null },
+                    { uid: 'r4', id: '104', prevWater: 410, currWater: 420, unpaidWater: 0, isPaid: false, slipImage: null },
+                    { uid: 'r5', id: '105', prevWater: 1100, currWater: 1100, unpaidWater: 0, isPaid: true, slipImage: null }
+                ];
+            }
+ 
+            onMounted(loadData);
+ 
+            // ---------- Calculations ----------
+            const getUnits = (room) => {
+                const units = room.currWater - room.prevWater;
+                return units > 0 ? units : 0;
+            };
+            const getWaterCost = (room) => {
+                if (!config.value.enableWater) return 0;
+                return getUnits(room) * config.value.waterRate;
+            };
+            const getTotal = (room) => getWaterCost(room) + (Number(room.unpaidWater) || 0);
+ 
+            watch(() => config.value.waterRate, (newVal) => {
+                if (newVal > 3) config.value.waterRate = 3;
+                else if (newVal < 0 || isNaN(newVal) || newVal === '') config.value.waterRate = 0;
+            });
+ 
+            // ---------- Save config (debounced) ----------
+            let configSaveTimer = null;
+            function scheduleSaveConfig() {
+                if (!isConfigured()) return;
+                configSaving.value = true;
+                clearTimeout(configSaveTimer);
+                configSaveTimer = setTimeout(async () => {
+                    try {
+                        await apiPost('saveConfig', config.value);
+                    } catch (err) {
+                        console.error('saveConfig failed', err);
+                    } finally {
+                        configSaving.value = false;
+                    }
+                }, 700);
+            }
+ 
+            // ---------- Save a single room ----------
+            async function saveRoom(room) {
+                if (!isConfigured()) return;
+                room.saving = true;
+                room.saved = false;
+                try {
+                    const res = await apiPost('saveRoom', room);
+                    if (res.ok && res.result && res.result.uid) room.uid = res.result.uid;
+                    if (!res.ok) throw new Error(res.error || 'บันทึกข้อมูลไม่สำเร็จ');
+                    room.saved = true;
+                    syncError.value = '';
+                    syncMessage.value = `บันทึกห้อง ${room.id} แล้ว`;
+                } catch (err) {
+                    console.error('saveRoom failed', err);
+                    syncError.value = `บันทึกห้อง ${room.id} ไม่สำเร็จ`;
+                } finally {
+                    room.saving = false;
+                    setTimeout(() => { room.saved = false; }, 2000);
+                }
+            }
+ 
+            // ---------- Toggle paid -> triggers LINE notify on backend ----------
+            async function togglePaid(room) {
+                if (!isConfigured()) return;
+                room.saving = true;
+                try {
+                    const res = await apiPost('markPaid', {
+                        uid: room.uid,
+                        id: room.id,
+                        isPaid: room.isPaid,
+                        amount: getTotal(room)
+                    });
+                    if (!res.ok) throw new Error(res.error || 'อัปเดตสถานะไม่สำเร็จ');
+                    room.saved = true;
+                    syncError.value = '';
+                    syncMessage.value = room.isPaid
+                        ? `บันทึกการชำระห้อง ${room.id} แล้ว${res.result?.notification?.ok ? ' และส่ง LINE แล้ว' : ''}`
+                        : `ยกเลิกสถานะชำระห้อง ${room.id} แล้ว`;
+                } catch (err) {
+                    console.error('markPaid failed', err);
+                    room.isPaid = !room.isPaid; // revert on failure
+                    syncError.value = `อัปเดตสถานะห้อง ${room.id} ไม่สำเร็จ`;
+                } finally {
+                    room.saving = false;
+                    setTimeout(() => { room.saved = false; }, 2000);
+                }
+            }
+ 
+            // ---------- QR ----------
+            const selectedRoomForQR = ref('101');
+            const qrPaymentType = ref('water_all');
+            const currentQRRoom = computed(() => rooms.value.find(r => r.id === selectedRoomForQR.value));
+            const qrAmount = computed(() => {
+                const room = currentQRRoom.value;
+                if (!room) return 0;
+                if (qrPaymentType.value === 'water_all') return getWaterCost(room) + (Number(room.unpaidWater) || 0);
+                if (qrPaymentType.value === 'water_current') return getWaterCost(room);
+                return 0;
+            });
+            const qrUrl = computed(() => {
+                if (qrAmount.value <= 0 || !config.value.promptPayId) return '';
+                return `https://promptpay.io/${config.value.promptPayId}/${qrAmount.value}.png`;
+            });
+ 
+            // ---------- Reporting ----------
+            const unpaidRooms = computed(() => rooms.value.filter(room => room.isPaid === false));
+            const totalUnpaidAmount = computed(() => unpaidRooms.value.reduce((sum, room) => sum + getTotal(room), 0));
+ 
+            // ---------- Slip upload -> Google Drive via GAS ----------
+            const handleFileUpload = (event, room) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const dataUrl = e.target.result;
+                    if (!isConfigured()) {
+                        room.slipImage = dataUrl; // fallback: keep locally only
+                        return;
+                    }
+                    room.uploading = true;
+                    try {
+                        const base64 = dataUrl.split(',')[1];
+                        const res = await apiPost('uploadSlip', { uid: room.uid, base64, mimeType: file.type });
+                        if (res.ok && res.result && res.result.url) {
+                            room.slipImage = res.result.url;
+                        }
+                    } catch (err) {
+                        console.error('uploadSlip failed', err);
+                    } finally {
+                        room.uploading = false;
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+ 
+            const removeSlip = (room) => {
+                room.slipImage = null;
+                saveRoom(room);
+            };
+ 
+            const previewSlip = (imageUrl) => { showingSlip.value = imageUrl; };
+ 
+            // ---------- Admin ----------
+            const openAdminModal = () => { pinInput.value = ''; pinError.value = false; showPinModal.value = true; };
+            const verifyPin = () => {
+                if (pinInput.value === ADMIN_PIN) { isAdmin.value = true; showPinModal.value = false; }
+                else { pinError.value = true; pinInput.value = ''; }
+            };
+            const lockAdmin = () => { isAdmin.value = false; };
+ 
+            // ---------- Add / remove room ----------
+            const addRoom = async () => {
+                const newRoom = {
+                    uid: 'r' + Date.now() + Math.floor(Math.random() * 1000),
+                    id: `บ้าน-${rooms.value.length + 1}`,
+                    prevWater: 0, currWater: 0, unpaidWater: 0, isPaid: false, slipImage: null,
+                    saving: false, saved: false, uploading: false
+                };
+                rooms.value.push(newRoom);
+                await saveRoom(newRoom);
+            };
+ 
+            const removeRoom = async (index) => {
+                const room = rooms.value[index];
+                rooms.value.splice(index, 1);
+                if (rooms.value.length > 0 && !rooms.value.find(r => r.id === selectedRoomForQR.value)) {
+                    selectedRoomForQR.value = rooms.value[0].id;
+                }
+                if (isConfigured() && room) {
+                    try { await apiPost('deleteRoom', { uid: room.uid }); }
+                    catch (err) { console.error('deleteRoom failed', err); }
+                }
+            };
+ 
+            return {
+                config, showingSlip, rooms, apiStatus, configSaving, syncMessage, syncError, loadData,
+                getUnits, getWaterCost, getTotal,
+                selectedRoomForQR, qrPaymentType, qrAmount, qrUrl,
+                unpaidRooms, totalUnpaidAmount,
+                handleFileUpload, removeSlip, previewSlip,
+                isAdmin, showPinModal, pinInput, pinError, openAdminModal, verifyPin, lockAdmin,
+                addRoom, removeRoom, saveRoom, togglePaid, scheduleSaveConfig
+            }
+        }
+    });
+ 
+    app.mount('#app');
+</script>
+</body>
+</html>
