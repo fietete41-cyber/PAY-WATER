@@ -195,6 +195,36 @@
                         </div>
                         <p class="text-[10px] sm:text-[11px] text-slate-400 mt-1.5">หาลิงก์นี้ได้จากหน้า Messaging API ใน LINE Developers Console ของ Official Account คุณ (รูปแบบ https://line.me/R/ti/p/@xxxxxxx)</p>
                     </div>
+ 
+                    <!-- Overdue reminder settings -->
+                    <div class="bg-amber-50/40 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-amber-100 md:col-span-3">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="p-1 bg-amber-100 rounded-lg text-amber-600 shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            </div>
+                            <label class="font-semibold text-sm text-amber-800">แจ้งเตือนแอดมินเมื่อห้องค้างชำระเกินกำหนด</label>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1.5">วันครบกำหนดชำระ (ของทุกเดือน)</label>
+                                <input type="number" v-model="config.paymentDueDay" @input="scheduleSaveConfig" min="1" max="31" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm">
+                            </div>
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1.5">จำนวนวันผ่อนผัน ก่อนแจ้งเตือน</label>
+                                <input type="number" v-model="config.overdueGraceDays" @input="scheduleSaveConfig" min="0" max="30" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm">
+                            </div>
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1.5">LINE User ID ของแอดมิน</label>
+                                <input type="text" v-model="config.adminLineUserId" @input="scheduleSaveConfig" placeholder="U1a2b3c4d5..." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm">
+                            </div>
+                        </div>
+                        <p class="text-[10px] sm:text-[11px] text-amber-700/80 mt-2 leading-relaxed">แจ้งเตือนนี้จะส่งหาแอดมินคนเดียว (ไม่ broadcast หาลูกบ้าน) หา LINE User ID ได้จาก LINE Official Account Manager &gt; Chat &gt; ให้แอดมินทักแชทหา OA ก่อน 1 ครั้ง แล้วดูที่ไอคอนข้อมูลผู้ใช้</p>
+                        <button v-if="isAdmin" @click="checkOverdueNow" :disabled="checkingOverdue" class="mt-3 flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
+                            <svg v-if="checkingOverdue" class="h-3.5 w-3.5 spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4"/></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            ตรวจสอบ/แจ้งเตือนห้องค้างชำระตอนนี้
+                        </button>
+                    </div>
                 </div>
             </section>
  
@@ -548,11 +578,16 @@
     // ★★★ วางลิงก์ Web App ของ Google Apps Script ที่ Deploy แล้วตรงนี้ ★★★
     // วาง URL ที่ได้จาก Deploy > Web app ของ Google Apps Script ตรงนี้เพียงครั้งเดียว
     // URL ต้องลงท้ายด้วย /exec (ไม่ใช่ /dev) และต้องกด "New deployment" ใหม่ทุกครั้งที่แก้โค้ด GAS
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxQyjIajWr5GJdmgRi-o7YtwRSmVRVbm62ib352NR-xvj4k_LPgf3O_SOZnFQ4SoRxUrA/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyO4DU0L4N72E0bxXGg77HuqrdI993wPmCYVXhLYhljif-JSrC3e_d3EqhMqH7298mIRQ/exec';
  
     const app = createApp({
         setup() {
-            const config = ref({ enableWater: true, waterRate: 3, promptPayId: '0812345678', lineAddFriendUrl: 'https://line.me/R/ti/p/@399ymyux' });
+            const config = ref({
+                enableWater: true, waterRate: 3, promptPayId: '0812345678',
+                lineAddFriendUrl: 'https://line.me/R/ti/p/@399ymyux',
+                paymentDueDay: 5, overdueGraceDays: 3, adminLineUserId: ''
+            });
+            const checkingOverdue = ref(false);
             const rooms = ref([]);
             const showingSlip = ref(null);
             const apiStatus = ref('loading'); // loading | ok | error
@@ -730,6 +765,30 @@
                 }
             }
  
+            // ---------- ตรวจสอบห้องค้างชำระเกินกำหนด (แจ้งเตือนแอดมินทาง LINE) ----------
+            async function checkOverdueNow() {
+                if (!isConfigured()) return;
+                checkingOverdue.value = true;
+                syncError.value = '';
+                try {
+                    const res = await apiPost('checkOverdueNow', {});
+                    if (!res.ok) throw new Error(res.error || 'ตรวจสอบไม่สำเร็จ');
+                    const r = res.result || {};
+                    if (!r.notified) {
+                        syncMessage.value = r.reason || 'ไม่มีห้องค้างชำระเกินกำหนด';
+                    } else if (r.notification && r.notification.ok) {
+                        syncMessage.value = `พบห้องค้างชำระ ${r.overdueRooms.length} ห้อง (รวม ฿${(r.totalAmount || 0).toLocaleString()}) — ส่งแจ้งเตือน LINE หาแอดมินแล้ว`;
+                    } else {
+                        syncError.value = `พบห้องค้างชำระ ${r.overdueRooms.length} ห้อง แต่ส่ง LINE ไม่สำเร็จ: ${r.notification && r.notification.error ? r.notification.error : 'ไม่ทราบสาเหตุ'}`;
+                    }
+                } catch (err) {
+                    console.error('checkOverdueNow failed', err);
+                    syncError.value = 'ตรวจสอบห้องค้างชำระไม่สำเร็จ: ' + err.message;
+                } finally {
+                    checkingOverdue.value = false;
+                }
+            }
+ 
             // ---------- QR ----------
             const selectedRoomForQR = ref('101');
             const qrPaymentType = ref('water_all');
@@ -829,7 +888,8 @@
                 unpaidRooms, totalUnpaidAmount,
                 handleFileUpload, removeSlip, previewSlip,
                 isAdmin, showPinModal, pinInput, pinError, openAdminModal, verifyPin, lockAdmin,
-                addRoom, removeRoom, saveRoom, togglePaid, scheduleSaveConfig
+                addRoom, removeRoom, saveRoom, togglePaid, scheduleSaveConfig,
+                checkOverdueNow, checkingOverdue
             }
         }
     });
