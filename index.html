@@ -519,6 +519,33 @@
                         </div>
                     </div>
 
+                    <!-- ★ เปลี่ยนรหัสผ่าน Admin (เห็นเฉพาะตอนปลดล็อกโหมด Admin แล้ว) -->
+                    <div v-if="isAdmin" class="mb-4 sm:mb-6 bg-slate-50/70 border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-5">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="p-1 bg-slate-200 rounded-lg text-slate-600 shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                            </div>
+                            <label class="font-semibold text-sm text-slate-700">เปลี่ยนรหัสผ่าน Admin</label>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1.5">รหัส PIN ใหม่</label>
+                                <input type="password" v-model="newPinInput" placeholder="กรอกรหัสใหม่" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm tracking-widest">
+                            </div>
+                            <div>
+                                <label class="text-[10px] sm:text-xs font-semibold text-slate-500 block mb-1.5">ยืนยันรหัส PIN ใหม่</label>
+                                <input type="password" v-model="confirmPinInput" @keyup.enter="changeAdminPin" placeholder="กรอกซ้ำอีกครั้ง" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-700 font-medium text-sm tracking-widest">
+                            </div>
+                        </div>
+                        <p v-if="changePinError" class="text-xs text-rose-500 font-medium mt-2">{{ changePinError }}</p>
+                        <p v-if="changePinSuccess" class="text-xs text-emerald-600 font-medium mt-2">{{ changePinSuccess }}</p>
+                        <button @click="changeAdminPin" :disabled="changingPin" class="mt-3 flex items-center gap-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
+                            <svg v-if="changingPin" class="h-3.5 w-3.5 spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4"/></svg>
+                            {{ changingPin ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน' }}
+                        </button>
+                        <p class="text-[10px] sm:text-[11px] text-slate-400 mt-2 leading-relaxed">ลืมรหัสผ่าน? ไปที่เมนู "NPT Smart Water Pay" ในหน้า Google Sheet แล้วเลือก "⚙️ ตั้งค่า Admin PIN" เพื่อรีเซ็ตรหัสได้โดยไม่ต้องรู้รหัสเดิม</p>
+                    </div>
+
                     <div class="relative">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5" :class="{'opacity-50 grayscale pointer-events-none select-none': !isAdmin}">
                         <!-- Utility Master Toggle -->
@@ -618,7 +645,7 @@
     // ★★★ วางลิงก์ Web App ของ Google Apps Script ที่ Deploy แล้วตรงนี้ ★★★
     // วาง URL ที่ได้จาก Deploy > Web app ของ Google Apps Script ตรงนี้เพียงครั้งเดียว
     // URL ต้องลงท้ายด้วย /exec (ไม่ใช่ /dev) และต้องกด "New deployment" ใหม่ทุกครั้งที่แก้โค้ด GAS
-    const API_URL = 'https://script.google.com/macros/s/AKfycby-41x_dj_8xG9PX4CxQ9_CMrXVlU_M_ys3XzzqktsbbXLHiqgzxfFiNz03_zWorI5rXA/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxagB7PC4BT8pLYWVkf8tH5IYoJwbx01vfACO70bubSO6DJORoT17-1MoQLAAGf9FFk0w/exec';
  
     // QR พร้อมเพย์จริง (รูปสแกนจากแอปธนาคาร) — แสดงเป็นภาพนิ่งในการ์ดตั้งค่า เพื่อให้ยืนยัน/สแกนตรงได้
     // ไม่เปลี่ยนตามยอดเงิน (คนละส่วนกับ Smart QR Generator ด้านขวาที่สร้าง QR ตามยอดที่ต้องจ่ายจริงของแต่ละห้อง)
@@ -669,6 +696,11 @@
             const isAdmin = ref(false);
             const showPinModal = ref(false);
             const showSettingsModal = ref(false);
+            const newPinInput = ref('');
+            const confirmPinInput = ref('');
+            const changingPin = ref(false);
+            const changePinError = ref('');
+            const changePinSuccess = ref('');
             const pinInput = ref('');
             const pinError = ref(false);
             const verifyingPin = ref(false);
@@ -1001,6 +1033,38 @@
                 }
             };
             const lockAdmin = () => { isAdmin.value = false; adminPin.value = ''; };
+
+            // ★ เปลี่ยนรหัสผ่าน Admin จากในหน้าเว็บ (ต้องปลดล็อกโหมด Admin อยู่ก่อนแล้ว)
+            const changeAdminPin = async () => {
+                changePinError.value = '';
+                changePinSuccess.value = '';
+                if (!newPinInput.value || !newPinInput.value.trim()) {
+                    changePinError.value = 'กรุณากรอกรหัส PIN ใหม่';
+                    return;
+                }
+                if (newPinInput.value !== confirmPinInput.value) {
+                    changePinError.value = 'รหัส PIN ใหม่ทั้งสองช่องไม่ตรงกัน';
+                    return;
+                }
+                if (!isConfigured()) {
+                    changePinError.value = 'ยังไม่ได้เชื่อมต่อ Google Sheets จึงเปลี่ยนรหัสไม่ได้';
+                    return;
+                }
+                changingPin.value = true;
+                try {
+                    const res = await apiPost('changeAdminPin', { pin: adminPin.value, newPin: newPinInput.value.trim() });
+                    if (!res.ok) throw new Error(res.error || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+                    adminPin.value = newPinInput.value.trim(); // ใช้รหัสใหม่ต่อได้เลยในเซสชันนี้ ไม่ต้องปลดล็อกใหม่
+                    changePinSuccess.value = 'เปลี่ยนรหัสผ่าน Admin เรียบร้อยแล้ว';
+                    newPinInput.value = '';
+                    confirmPinInput.value = '';
+                } catch (err) {
+                    console.error('changeAdminPin failed', err);
+                    changePinError.value = err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ';
+                } finally {
+                    changingPin.value = false;
+                }
+            };
  
             // ---------- Add / remove room ----------
             const addRoom = async () => {
@@ -1036,6 +1100,7 @@
                 unpaidRooms, totalUnpaidAmount,
                 handleFileUpload, removeSlip, previewSlip,
                 isAdmin, showPinModal, showSettingsModal, pinInput, pinError, verifyingPin, openAdminModal, verifyPin, lockAdmin,
+                newPinInput, confirmPinInput, changingPin, changePinError, changePinSuccess, changeAdminPin,
                 addRoom, removeRoom, saveRoom, togglePaid, scheduleSaveConfig,
                 checkOverdueNow, checkingOverdue,
                 selectedUnpaidUids, allUnpaidSelected, toggleSelectAllUnpaid, notifySelectedRooms, notifyingSelected
