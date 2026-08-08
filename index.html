@@ -119,6 +119,9 @@
                 </div>
                 <span class="text-brand-50 font-medium tracking-wide">{{ apiStatus === 'ok' ? 'ระบบพร้อมใช้งาน' : 'โหมดออฟไลน์' }}</span>
             </div>
+            <button @click="loadData" title="รีเฟรชข้อมูล" class="shrink-0 p-2.5 sm:p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full shadow-inner transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-brand-50" :class="{'spin': apiStatus === 'loading'}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </button>
             <button @click="showSettingsModal = true" title="ตั้งค่าพารามิเตอร์ระบบ" class="shrink-0 p-2.5 sm:p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full shadow-inner transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-brand-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             </button>
@@ -161,10 +164,11 @@
                 </div>
  
                 <div class="overflow-x-auto flex-1 relative w-full scroll-smooth">
-                    <table class="w-full text-left border-collapse min-w-[700px]">
+                    <table class="w-full text-left border-collapse min-w-[850px]">
                         <thead>
                             <tr class="text-slate-500 text-[10px] sm:text-xs uppercase tracking-wider font-semibold border-b border-slate-100 bg-slate-50/80">
                                 <th class="py-2.5 sm:py-3 px-2 sm:px-3 text-center sticky left-0 z-20 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] border-r border-slate-100">ห้อง</th>
+                                <th class="py-2.5 sm:py-3 px-2 sm:px-3 text-left whitespace-nowrap">ชื่อผู้อยู่อาศัย</th>
                                 <th class="py-2.5 sm:py-3 px-2 sm:px-3 text-center">มิเตอร์เดิม</th>
                                 <th class="py-2.5 sm:py-3 px-2 sm:px-3 text-center text-brand-600 bg-brand-50/50 rounded-t-lg">มิเตอร์ใหม่</th>
                                 <th class="py-2.5 sm:py-3 px-2 sm:px-3 text-center text-rose-600 bg-rose-50/50 rounded-t-lg">ค้างจ่าย (น้ำ)</th>
@@ -191,7 +195,12 @@
                                         </button>
                                     </div>
                                 </td>
- 
+
+                                <td class="py-2 sm:py-2.5 px-2 sm:px-3 text-left text-xs sm:text-sm">
+                                    <span v-if="!isAdmin" class="text-slate-600" :class="{'italic text-slate-400': room.residentName === 'ว่าง' || !room.residentName}">{{ room.residentName || '—' }}</span>
+                                    <input v-else type="text" v-model="room.residentName" @blur="saveRoom(room)" class="w-28 sm:w-36 px-1.5 py-1 text-xs sm:text-sm border-2 border-brand-300 rounded-lg focus:outline-none focus:border-brand-500 bg-white text-slate-700 shadow-sm" placeholder="ชื่อผู้อยู่อาศัย">
+                                </td>
+
                                 <td class="py-2 sm:py-2.5 px-2 sm:px-3 text-center text-slate-400 font-medium text-xs sm:text-sm">
                                     <span v-if="!isAdmin">{{ room.prevWater }}</span>
                                     <input v-else type="number" v-model="room.prevWater" @blur="saveRoom(room)" class="w-14 sm:w-16 text-center px-1 py-1 text-xs sm:text-sm border-2 border-brand-300 rounded-lg focus:outline-none focus:border-brand-500 bg-white text-slate-700 shadow-sm">
@@ -609,7 +618,7 @@
     // ★★★ วางลิงก์ Web App ของ Google Apps Script ที่ Deploy แล้วตรงนี้ ★★★
     // วาง URL ที่ได้จาก Deploy > Web app ของ Google Apps Script ตรงนี้เพียงครั้งเดียว
     // URL ต้องลงท้ายด้วย /exec (ไม่ใช่ /dev) และต้องกด "New deployment" ใหม่ทุกครั้งที่แก้โค้ด GAS
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyu79iCYAjDTWynCi8S3Uv4v_aw7sI07Icz0DTE1r7hZrK4wDabrRLeOFHFxamDnR07ww/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwmLGWHRY9oljuHZs5u1L1m-iF9cz9c8DrW7_PtWaEWsDkLPwHMyMk7P_DESFOeSTQzbg/exec';
  
     // QR พร้อมเพย์จริง (รูปสแกนจากแอปธนาคาร) — แสดงเป็นภาพนิ่งในการ์ดตั้งค่า เพื่อให้ยืนยัน/สแกนตรงได้
     // ไม่เปลี่ยนตามยอดเงิน (คนละส่วนกับ Smart QR Generator ด้านขวาที่สร้าง QR ตามยอดที่ต้องจ่ายจริงของแต่ละห้อง)
@@ -738,11 +747,11 @@
  
             function seedMockData() {
                 rooms.value = [
-                    { uid: 'r1', id: '101', prevWater: 1500, currWater: 1515, unpaidWater: 45, isPaid: false, slipImage: null },
-                    { uid: 'r2', id: '102', prevWater: 2300, currWater: 2310, unpaidWater: 0, isPaid: true, slipImage: null },
-                    { uid: 'r3', id: '103', prevWater: 950, currWater: 972, unpaidWater: 120, isPaid: false, slipImage: null },
-                    { uid: 'r4', id: '104', prevWater: 410, currWater: 420, unpaidWater: 0, isPaid: false, slipImage: null },
-                    { uid: 'r5', id: '105', prevWater: 1100, currWater: 1100, unpaidWater: 0, isPaid: true, slipImage: null }
+                    { uid: 'r1', id: '101', prevWater: 1500, currWater: 1515, unpaidWater: 45, isPaid: false, slipImage: null, residentName: '' },
+                    { uid: 'r2', id: '102', prevWater: 2300, currWater: 2310, unpaidWater: 0, isPaid: true, slipImage: null, residentName: '' },
+                    { uid: 'r3', id: '103', prevWater: 950, currWater: 972, unpaidWater: 120, isPaid: false, slipImage: null, residentName: '' },
+                    { uid: 'r4', id: '104', prevWater: 410, currWater: 420, unpaidWater: 0, isPaid: false, slipImage: null, residentName: '' },
+                    { uid: 'r5', id: '105', prevWater: 1100, currWater: 1100, unpaidWater: 0, isPaid: true, slipImage: null, residentName: '' }
                 ];
             }
  
@@ -798,6 +807,7 @@
                         if (typeof res.result.prevWater === 'number') room.prevWater = res.result.prevWater;
                         if (typeof res.result.unpaidWater === 'number') room.unpaidWater = res.result.unpaidWater;
                         if (typeof res.result.id === 'string') room.id = res.result.id;
+                        if (typeof res.result.residentName === 'string') room.residentName = res.result.residentName;
                     }
                     room.saved = true;
                     syncError.value = '';
@@ -997,7 +1007,7 @@
                 const newRoom = {
                     uid: 'r' + Date.now() + Math.floor(Math.random() * 1000),
                     id: `บ้าน-${rooms.value.length + 1}`,
-                    prevWater: 0, currWater: 0, unpaidWater: 0, isPaid: false, slipImage: null,
+                    prevWater: 0, currWater: 0, unpaidWater: 0, isPaid: false, slipImage: null, residentName: '',
                     saving: false, saved: false, uploading: false
                 };
                 rooms.value.push(newRoom);
